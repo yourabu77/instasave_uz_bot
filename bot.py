@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, types
 from aiohttp import web
 import asyncio
 import os
-from instaloader_wrapper import InstaloaderWrapper
+import instaloader
 
 API_TOKEN = "👉 8201685441:AAEOP4pi-AbI0OmJU4O2VB_G-Zuns8GBpTo 👈"
 
@@ -38,8 +38,25 @@ async def handler(message: types.Message):
         await message.answer("🔄 Yuklanmoqda, biroz kuting...")
 
         try:
-            loader = InstaloaderWrapper()
-            media_url = loader.get_post_url(text)
+            import re
+
+L = instaloader.Instaloader(dirname_pattern="downloads", download_videos=True)
+
+match = re.search(r"(https?://www\.instagram\.com/[^\s]+)", text)
+if match:
+    try:
+        post_url = match.group(1)
+        shortcode = post_url.split("/")[-2]
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+
+        if post.is_video:
+            await message.answer_video(post.video_url, caption="🎬 Mana sizning videongiz ✅")
+        else:
+            await message.answer_photo(post.url, caption="📸 Mana sizning rasm(laringiz) ✅")
+
+    except Exception as e:
+        print("Xato:", e)
+        await message.answer("⚠️ Videoni yuklab bo‘lmadi. Havolani tekshirib qayta urinib ko‘ring.")
 
             if media_url.endswith(".mp4"):
                 await message.answer_video(media_url, caption="🎬 Mana sizning videongiz ✅")
