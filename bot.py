@@ -4,7 +4,7 @@ import asyncio
 import instaloader
 import os
 
-API_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # Bot tokeningni shu yerga yoz
+API_TOKEN = "8201685441:AAEOP4pi-AbI0OmJU4O2VB_G-Zuns8GBpTo"  # Bot tokeningni shu yerga yoz
 WEBHOOK_PATH = "/webhook"
 WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}{WEBHOOK_PATH}"
 
