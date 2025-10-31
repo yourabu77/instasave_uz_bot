@@ -1,3 +1,3 @@
 aiogram==3.3.0
 aiohttp
-instaloader
+instaloader==4.10
