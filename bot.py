@@ -1,104 +1,57 @@
-
 from aiogram import Bot, Dispatcher, types
 from aiohttp import web
 import asyncio
-import os
 import instaloader
+import os
 
-API_TOKEN = "👉 8201685441:AAEOP4pi-AbI0OmJU4O2VB_G-Zuns8GBpTo 👈"
-
+API_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # Bot tokeningni shu yerga yoz
 WEBHOOK_PATH = "/webhook"
 WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}{WEBHOOK_PATH}"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-
 @dp.message()
-async def handler(message: types.Message):
-    text = message.text.strip()
-
-    if text == "/start":
+async def handle_message(message: types.Message):
+    if message.text == "/start":
         await message.answer(
-            "👋 Salom! Men Instagram video yuklab beruvchi botman 📲\n\n"
-            "🎬 Menga istalgan Instagram post havolasini yuboring, men uni sizga yuklab beraman ✅\n\n"
-            "📌 Masalan:\nhttps://www.instagram.com/p/XXXXXXXXXXX\n\n"
-            "👨‍💻 Dasturchi: @yourabu"
+            "📸 Instagram Video Saver Bot'ga xush kelibsiz!\n\n"
+            "🔗 Menga Instagram post, reel yoki video havolasini yuboring — "
+            "men sizga videoni yuboraman 🎥"
         )
-
-    elif text == "/help":
-        await message.answer(
-            "🆘 Yordam:\n\n"
-            "1️⃣ Instagramdan post yoki reels havolasini yuboring\n"
-            "2️⃣ Bot avtomatik tarzda videoni sizga yuboradi 🎥\n\n"
-            "⚠️ Faqat ochiq (public) akkauntlardagi videolarni yuklab bo‘ladi!"
-        )
-
-    elif "instagram.com" in text:
-        await message.answer("🔄 Yuklanmoqda, biroz kuting...")
-
+    elif "instagram.com" in message.text:
+        await message.answer("⏳ Yuklanmoqda, biroz kuting...")
         try:
-            import re
-
-L = instaloader.Instaloader(dirname_pattern="downloads", download_videos=True)
-
-match = re.search(r"(https?://www\.instagram\.com/[^\s]+)", text)
-if match:
-    try:
-        post_url = match.group(1)
-        shortcode = post_url.split("/")[-2]
-        post = instaloader.Post.from_shortcode(L.context, shortcode)
-
-        if post.is_video:
-            await message.answer_video(post.video_url, caption="🎬 Mana sizning videongiz ✅")
-        else:
-            await message.answer_photo(post.url, caption="📸 Mana sizning rasm(laringiz) ✅")
-
-    except Exception as e:
-        print("Xato:", e)
-        await message.answer("⚠️ Videoni yuklab bo‘lmadi. Havolani tekshirib qayta urinib ko‘ring.")
-
-            if media_url.endswith(".mp4"):
-                await message.answer_video(media_url, caption="🎬 Mana sizning videongiz ✅")
-            else:
-                await message.answer_photo(media_url, caption="📸 Mana sizning rasm(laringiz) ✅")
-
+            loader = instaloader.Instaloader(dirname_pattern="downloads", save_metadata=False)
+            post = instaloader.Post.from_shortcode(loader.context, message.text.split("/")[-2])
+            video_url = post.video_url
+            await message.answer_video(video_url, caption="✅ Mana siz so‘ragan video!")
         except Exception as e:
-            print("Xato:", e)
-            await message.answer("⚠️ Videoni yuklab bo‘lmadi. Havolani tekshirib qayta urinib ko‘ring.")
-
+            await message.answer("❌ Videoni yuklab bo‘lmadi. Havolani tekshirib ko‘ring.")
     else:
-        await message.answer("ℹ️ Faqat Instagram post yoki reels havolasini yuboring.")
+        await message.answer("Iltimos, faqat Instagram havolasini yuboring 🔗")
 
+async def on_startup(app):
+    await bot.set_webhook(WEBHOOK_URL)
+    print(f"Webhook o‘rnatildi: {WEBHOOK_URL}")
 
-# --- Webhook qismi ---
+async def on_shutdown(app):
+    await bot.delete_webhook()
+    await bot.session.close()
+
 async def handle(request):
     update = await request.json()
     telegram_update = types.Update(**update)
     await dp.feed_update(bot, telegram_update)
     return web.Response()
 
-
-async def on_startup(app):
-    await bot.set_webhook(WEBHOOK_URL)
-    print(f"✅ Webhook o‘rnatildi: {WEBHOOK_URL}")
-
-
-async def on_shutdown(app):
-    await bot.delete_webhook()
-    await bot.session.close()
-    print("🛑 Bot to‘xtatildi")
-
-
 def start():
     app = web.Application()
     app.router.add_post(WEBHOOK_PATH, handle)
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
-
     port = int(os.getenv("PORT", 10000))
     web.run_app(app, host="0.0.0.0", port=port)
-
 
 if __name__ == "__main__":
     start()
