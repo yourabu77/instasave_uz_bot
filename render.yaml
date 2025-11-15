@@ -1,4 +1,5 @@
 build:
   pythonVersion: 3.11.9
   buildCommand: pip install -r requirements.txt
+
 startCommand: python bot.py
