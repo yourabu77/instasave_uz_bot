@@ -1,83 +1,62 @@
-import os
-import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.client.default import DefaultBotProperties
 from aiohttp import web
+import os
 import instaloader
+import asyncio
 
-API_TOKEN = os.getenv("API_TOKEN")
+API_TOKEN = os.getenv("API_TOKEN")  # tokenni Environment variable dan oling
 
 WEBHOOK_PATH = "/webhook"
-HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}{WEBHOOK_PATH}"
 
-if not HOSTNAME:
-    raise RuntimeError("RENDER_EXTERNAL_HOSTNAME topilmadi!")
-
-WEBHOOK_URL = f"https://{HOSTNAME}{WEBHOOK_PATH}"
-
-bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+# Bot va Dispatcher yaratish
+bot = Bot(token=API_TOKEN, parse_mode="HTML")
 dp = Dispatcher()
 
-
-def extract_shortcode(url: str) -> str:
-    url = url.split("?")[0]          # ?dan keyingi parametrlardan tozalash
-    url = url.rstrip("/")            # oxirgi / ni olib tashlash
-    return url.split("/")[-1]        # shortcode
-
-
+# /start komandasi
 @dp.message()
-async def download_instagram_video(message: types.Message):
-    text = message.text.strip()
-
-    if text == "/start":
+async def start_handler(message: types.Message):
+    if message.text == "/start":
         await message.answer(
-            "👋 Salom! Instagram video yuklab beruvchi bot!\n\n"
-            "📌 Menga Instagram video havolasini yuboring.\n"
-            "Masalan:\nhttps://www.instagram.com/reel/xxxx"
+            "👋 Salom! Bu bot orqali siz Instagram'dan videolarni yuklab olishingiz mumkin.\n\n"
+            "📌 Faqat video postlarni yuboring (havola bilan):\n\n"
+            "Masalan:\n"
+            "https://www.instagram.com/reel/xxxxx\n\n"
+            "👨‍💻 Dasturchi: @yourabu"
         )
-        return
-
-    if "instagram.com" not in text:
+    elif "instagram.com" in message.text:
+        await download_instagram_video(message)
+    else:
         await message.answer("📩 Iltimos, Instagram video havolasini yuboring.")
-        return
 
+# Video yuklab olish funksiyasi
+async def download_instagram_video(message: types.Message):
     try:
-        await message.answer("⏳ Yuklab olinmoqda, biroz kuting...")
-
-        loader = instaloader.Instaloader(
-            dirname_pattern="downloads",
-            save_metadata=False,
-            download_comments=False,
-            post_metadata_txt_pattern=""
-        )
-
-        shortcode = extract_shortcode(text)
+        await message.answer("⏳ Yuklab olinmoqda... Iltimos, kuting...")
+        loader = instaloader.Instaloader(dirname_pattern="downloads", save_metadata=False)
+        shortcode = message.text.split("/")[-2]
         post = instaloader.Post.from_shortcode(loader.context, shortcode)
         video_url = post.video_url
-
         await message.answer_video(video_url, caption="✅ Yuklab olindi!")
-
     except Exception as e:
-        print("Xato:", e)
-        await message.answer("❌ Xato! Faqat ochiq videolarni yuboring.")
+        await message.answer("❌ Xato yuz berdi! Faqat jamoatchilikka ochiq videolarni yuboring.")
+        print(e)
 
-
+# Webhook handler
 async def handle(request):
-    data = await request.json()
-    update = types.Update.model_validate(data)
-    await dp.feed_update(bot, update)
+    update = await request.json()
+    telegram_update = types.Update(**update)
+    await dp.feed_update(bot, telegram_update)
     return web.Response()
 
-
+# Webhook o‘rnatish va server ishga tushirish
 async def on_startup(app):
     await bot.set_webhook(WEBHOOK_URL)
-    print(f"🚀 Webhook ishga tushdi: {WEBHOOK_URL}")
-
+    print(f"✅ Webhook o‘rnatildi: {WEBHOOK_URL}")
 
 async def on_shutdown(app):
     await bot.delete_webhook()
     await bot.session.close()
-
 
 def start():
     app = web.Application()
@@ -87,7 +66,6 @@ def start():
 
     port = int(os.getenv("PORT", 10000))
     web.run_app(app, host="0.0.0.0", port=port)
-
 
 if __name__ == "__main__":
     start()
