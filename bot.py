@@ -1,40 +1,36 @@
-# bot.py
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import Message
-from aiogram.filters import Command
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-from aiohttp import web
 import os
+from aiogram import Bot, Dispatcher, types
+from aiohttp import web
 
-API_TOKEN = os.getenv("BOT_TOKEN")  # Render-da Environment variable sifatida BOT_TOKEN o'rnatilsin
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}{WEBHOOK_PATH}"
+# Environment variable orqali token olish
+API_TOKEN = os.getenv("BOT_TOKEN")
+
+if not API_TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is not set!")
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Oddiy /start buyrug‘i handleri
-@dp.message(Command("start"))
-async def cmd_start(message: Message):
-    await message.answer("Salom! Bot ishlayapti ✅")
-
-# Oddiy matn handleri
+# Oddiy hello handler
 @dp.message()
-async def echo(message: Message):
-    await message.answer(f"Siz yozdingiz: {message.text}")
+async def echo(message: types.Message):
+    await message.answer(f"Salom! Siz yozdingiz: {message.text}")
 
-# Aiohttp web serverni sozlash
-async def on_startup(app: web.Application):
-    await bot.set_webhook(WEBHOOK_URL)
+# Webhook route
+async def handle(request):
+    update = types.Update(**await request.json())
+    await dp.process_update(update)
+    return web.Response()
 
-async def on_shutdown(app: web.Application):
-    await bot.delete_webhook()
-    await bot.session.close()
-
+# Web-server sozlamalari
 app = web.Application()
-app.add_routes([web.post(WEBHOOK_PATH, SimpleRequestHandler(dispatcher=dp))])
-app.on_startup.append(on_startup)
-app.on_shutdown.append(on_shutdown)
+app.router.add_post("/webhook", handle)
 
 if __name__ == "__main__":
-    web.run_app(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    import asyncio
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    
+    port = int(os.getenv("PORT", 8000))  # Render-da PORT environment variable avtomatik beriladi
+    logging.info(f"Starting server on port {port}")
+    web.run_app(app, port=port)
